@@ -1,0 +1,5 @@
+{
+  "globalDependencies": {
+    "superagent": "registry:dt/superagent#2.0.0+20160906143408"
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "compilerOptions": {
+    "module": "commonjs"
+  },
+  "files": [
+    "./src/doctrine.ts",
+    "./typings/index.d.ts"
+  ]
+}
