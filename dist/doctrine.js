@@ -44,15 +44,26 @@
 /* 0 */
 /***/ function(module, exports, __webpack_require__) {
 
-	module.exports = __webpack_require__(1);
-
-
-/***/ },
-/* 1 */
-/***/ function(module, exports, __webpack_require__) {
-
 	"use strict";
-	var request = __webpack_require__(2);
+	var __extends = (this && this.__extends) || function (d, b) {
+	    for (var p in b) if (b.hasOwnProperty(p)) d[p] = b[p];
+	    function __() { this.constructor = d; }
+	    d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
+	};
+	var request = __webpack_require__(1);
+	var SuperagentRequestService = (function () {
+	    function SuperagentRequestService() {
+	    }
+	    SuperagentRequestService.prototype.post = function (url, params) {
+	        return new Promise(function (resolve) {
+	            request
+	                .get(url)
+	                .send()
+	                .then(function (response) { return resolve(new PersistResult(response)); });
+	        });
+	    };
+	    return SuperagentRequestService;
+	}());
 	/**
 	 * Created by igorandreev on 17/10/16.
 	 */
@@ -64,33 +75,94 @@
 	     * @param entryUrl
 	     */
 	    function DoctrineJS(entryUrl) {
-	        request.get('');
+	        this.repositories = {};
+	        this.entryUrl = entryUrl;
 	    }
-	    DoctrineJS.prototype.em = function () {
-	        return 2;
+	    DoctrineJS.prototype.createEntity = function () {
+	        return new Entity();
 	    };
-	    DoctrineJS.prototype.entity = function () {
-	        return "s";
+	    DoctrineJS.prototype.createRepository = function () {
+	        return Repository;
 	    };
-	    DoctrineJS.prototype.persist = function () {
+	    DoctrineJS.prototype.getEntityManager = function () {
+	        if (this.entityManager === undefined) {
+	            this.entityManager = new EntityManager(this.entryUrl);
+	        }
+	        return this.entityManager;
 	    };
 	    return DoctrineJS;
 	}());
 	exports.DoctrineJS = DoctrineJS;
+	function Repository(method) {
+	    var args = [];
+	    for (var _i = 1; _i < arguments.length; _i++) {
+	        args[_i - 1] = arguments[_i];
+	    }
+	}
+	var EntityManager = (function () {
+	    function EntityManager(entryUrl) {
+	        this.entryUrl = entryUrl;
+	    }
+	    EntityManager.prototype.persist = function (data) {
+	        return this.requestService.post(this.entryUrl, data);
+	    };
+	    return EntityManager;
+	}());
+	var RequestResult = (function () {
+	    function RequestResult(response) {
+	        if (response.ok) {
+	            this.data = response.body;
+	        }
+	        this.response = response;
+	    }
+	    RequestResult.prototype.setData = function (data) {
+	        this.data = data;
+	    };
+	    RequestResult.prototype.getData = function () {
+	        return this.data;
+	    };
+	    RequestResult.prototype.wasThereAnError = function () {
+	        return !this.response.ok;
+	    };
+	    return RequestResult;
+	}());
+	exports.RequestResult = RequestResult;
+	var PersistResult = (function (_super) {
+	    __extends(PersistResult, _super);
+	    function PersistResult() {
+	        _super.apply(this, arguments);
+	    }
+	    PersistResult.prototype.setData = function (data) {
+	        this.data = data;
+	    };
+	    return PersistResult;
+	}(RequestResult));
 	var Entity = (function () {
 	    function Entity() {
 	    }
+	    Entity.createFromData = function (data) {
+	        return new Entity();
+	    };
 	    return Entity;
 	}());
-	var EntityManager = (function () {
-	    function EntityManager() {
+	function convertDataToEntities(data) {
+	    var convertedData;
+	    if (data instanceof Array) {
+	        convertedData = [];
+	        data.forEach(function (o) {
+	            convertedData.push(convertDataToEntities(o));
+	        });
 	    }
-	    return EntityManager;
-	}());
+	    else {
+	        var entity = Entity.createFromData(data);
+	        convertedData = entity;
+	    }
+	    return convertedData;
+	}
 
 
 /***/ },
-/* 2 */
+/* 1 */
 /***/ function(module, exports, __webpack_require__) {
 
 	/**
@@ -107,9 +179,9 @@
 	  root = this;
 	}
 
-	var Emitter = __webpack_require__(3);
-	var requestBase = __webpack_require__(4);
-	var isObject = __webpack_require__(5);
+	var Emitter = __webpack_require__(2);
+	var requestBase = __webpack_require__(3);
+	var isObject = __webpack_require__(4);
 
 	/**
 	 * Noop.
@@ -121,7 +193,7 @@
 	 * Expose `request`.
 	 */
 
-	var request = module.exports = __webpack_require__(6).bind(null, Request);
+	var request = module.exports = __webpack_require__(5).bind(null, Request);
 
 	/**
 	 * Determine XHR.
@@ -1072,7 +1144,7 @@
 
 
 /***/ },
-/* 3 */
+/* 2 */
 /***/ function(module, exports, __webpack_require__) {
 
 	
@@ -1241,13 +1313,13 @@
 
 
 /***/ },
-/* 4 */
+/* 3 */
 /***/ function(module, exports, __webpack_require__) {
 
 	/**
 	 * Module of mixed-in functions shared between node and client code
 	 */
-	var isObject = __webpack_require__(5);
+	var isObject = __webpack_require__(4);
 
 	/**
 	 * Clear previous timeout.
@@ -1619,7 +1691,7 @@
 
 
 /***/ },
-/* 5 */
+/* 4 */
 /***/ function(module, exports) {
 
 	/**
@@ -1638,7 +1710,7 @@
 
 
 /***/ },
-/* 6 */
+/* 5 */
 /***/ function(module, exports) {
 
 	// The node and browser modules expose versions of this with the
