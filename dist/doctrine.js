@@ -52,8 +52,18 @@
 	};
 	var request = __webpack_require__(1);
 	var SuperagentRequestService = (function () {
-	    function SuperagentRequestService() {
+	    function SuperagentRequestService(entryUrl) {
+	        this.entryUrl = entryUrl;
 	    }
+	    SuperagentRequestService.prototype.setEntryUrl = function (url) {
+	        this.entryUrl = url;
+	    };
+	    SuperagentRequestService.prototype.entityManagerRequest = function (data) {
+	        return this.post(this.entryUrl + "/entity-manager", data);
+	    };
+	    SuperagentRequestService.prototype.repositoryRequest = function (data) {
+	        return this.post(this.entryUrl + "/repository", data);
+	    };
 	    SuperagentRequestService.prototype.post = function (url, params) {
 	        return new Promise(function (resolve) {
 	            request
@@ -86,7 +96,7 @@
 	    };
 	    DoctrineJS.prototype.getEntityManager = function () {
 	        if (this.entityManager === undefined) {
-	            this.entityManager = new EntityManager(this.entryUrl);
+	            this.entityManager = new EntityManager(this.entryUrl, this.requestService);
 	        }
 	        return this.entityManager;
 	    };
@@ -100,11 +110,12 @@
 	    }
 	}
 	var EntityManager = (function () {
-	    function EntityManager(entryUrl) {
+	    function EntityManager(entryUrl, requestService) {
 	        this.entryUrl = entryUrl;
+	        this.requestService = requestService;
 	    }
 	    EntityManager.prototype.persist = function (data) {
-	        return this.requestService.post(this.entryUrl, data);
+	        return this.requestService.entityManagerRequest(data);
 	    };
 	    return EntityManager;
 	}());

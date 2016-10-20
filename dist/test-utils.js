@@ -48,8 +48,17 @@
 	var MockRequestService = (function () {
 	    function MockRequestService() {
 	    }
-	    MockRequestService.prototype.post = function (url, params) {
+	    MockRequestService.prototype.entityManagerRequest = function (data) {
+	        return this.post("/entity-manager", data);
 	    };
+	    MockRequestService.prototype.repositoryRequest = function (data) {
+	        return this.post("/repository", data);
+	    };
+	    MockRequestService.prototype.post = function (url, params) {
+	        return new Promise(function (resolve) {
+	        });
+	    };
+	    MockRequestService.prototype.setEntryUrl = function (url) { };
 	    return MockRequestService;
 	}());
 	exports.MockRequestService = MockRequestService;

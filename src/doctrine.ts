@@ -9,9 +9,11 @@ export interface HttpPostRequestParams {
 }
 
 export interface HttpRequestServiceInterface {
-  entityManagerRequest(data: any): Promise<RequestResult>;
+  setEntryUrl(url: string);
 
-  repositoryRequest(data: any): Promise<RequestResult>;
+  entityManagerRequest(command: string, data: any): Promise<RequestResult>;
+
+  repositoryRequest(command: string, params: any): Promise<RequestResult>;
 }
 
 class SuperagentRequestService implements HttpRequestServiceInterface {
@@ -21,12 +23,19 @@ class SuperagentRequestService implements HttpRequestServiceInterface {
     this.entryUrl = entryUrl;
   }
 
-  entityManagerRequest(data: any): Promise<RequestResult> {
-    return this.post(this.entryUrl + "/entity-manager", data);
+  public setEntryUrl(url: string) {
+    this.entryUrl = url;
   }
 
-  repositoryRequest(data: any): Promise<RequestResult> {
-    return this.post(this.entryUrl + "/repository", data);
+  entityManagerRequest(command: string, data: any): Promise<RequestResult> {
+    return this.post(this.entryUrl + "/entity-manager", {
+      command,
+      data
+    });
+  }
+
+  repositoryRequest(command: string, data: any): Promise<RequestResult> {
+    return this.post(this.entryUrl + "/repository", { command, data });
   }
 
   post(url: string, params: HttpPostRequestParams): Promise<RequestResult> {
@@ -94,20 +103,34 @@ class EntityManager {
   }
 
   public persist(data: Array<Entity> | Entity): Promise<PersistResult> {
-    return this.requestService.entityManagerRequest(data);
+    return this.requestService.entityManagerRequest("persist", data);
   }
+
+  public remove(data: Entity[] | Entity) {
+    return this.requestService.entityManagerRequest("remove", data);
+  }
+}
+
+function isSuperagentResponse(arg): arg is request.Response {
+  return "body" in arg && "ok" in arg && "status" in arg;
 }
 
 export class RequestResult {
   protected data: any | undefined;
-  private response: request.Response;
+  private response: request.Response | undefined;
 
-  public constructor(response: request.Response) {
-    if (response.ok) {
-      this.data = response.body;
+  // We don't have here strong type for response because we can be using another
+  // way of accessing data
+  public constructor(arg: request.Response | any) {
+    if (isSuperagentResponse(arg)) {
+      if (arg.ok) {
+        this.data = arg.body;
+      }
+
+      this.response = arg;
+    } else {
+      this.data = arg;
     }
-
-    this.response = response;
   }
 
   public setData(data: any) {
@@ -119,17 +142,32 @@ export class RequestResult {
   }
 
   public wasThereAnError(): boolean {
-    return !this.response.ok;
+    if (this.response) {
+      return !this.response.ok;
+    }
+
+    return false;
   }
 }
 
-class PersistResult extends RequestResult {
+export class PersistResult extends RequestResult {
   protected data: Entity[] | Entity;
 
   public setData(data: Entity[] | Entity) {
     this.data = data;
   }
 }
+
+export class RemoveResult extends RequestResult {
+  public successfull(): boolean {
+    return this.data;
+  }
+}
+
+/**
+ * Since persist and search returns entities
+ */
+export class SearchResult extends PersistResult {}
 
 class Entity {
   private entityName: string;

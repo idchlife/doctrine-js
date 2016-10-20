@@ -4,6 +4,7 @@
   },
   "files": [
     "./src/doctrine.ts",
+    "./src/test-utils.ts",
     "./typings/index.d.ts"
   ]
 }

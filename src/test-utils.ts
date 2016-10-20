@@ -1,12 +1,27 @@
 import {
   HttpRequestServiceInterface,
   HttpPostRequestParams,
-  RequestResult
+  RequestResult,
+  PersistResult,
+  RemoveResult
 } from "./doctrine";
-import * as request from "superagent";
 
 export class MockRequestService implements HttpRequestServiceInterface {
-  post(url: string, params: HttpPostRequestParams): Promise<RequestResult> {
-    
+  entityManagerRequest(command: string, data: any): Promise<RequestResult> {
+    return new Promise<RequestResult>(resolve => {
+      if (command === "persist") {
+        resolve(new PersistResult(data));
+      } else if (command = "remove") {
+        resolve(new RemoveResult(true));
+      }
+    });
   }
+
+  repositoryRequest(command: string, params: any): Promise<RequestResult> {
+    return new Promise<RequestResult>(resolve => {
+
+    });
+  }
+
+  public setEntryUrl(url: string) {}
 }
