@@ -4,8 +4,9 @@ const ProgressPlugin = require('bitbar-webpack-progress-plugin');
 
 module.exports = {
   entry: {
-    'doctrine': './src/doctrine.ts',
-    'test-utils': './src/test-utils.ts'
+    'doctrine': ['./src/doctrine.ts'],
+    'test-utils': ['./src/test-utils.ts'],
+    'request-service': ['./src/request-service.ts']
   },
   output: {
     filename: './dist/[name].js'

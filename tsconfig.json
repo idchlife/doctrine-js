@@ -5,6 +5,7 @@
   "files": [
     "./src/doctrine.ts",
     "./src/test-utils.ts",
+    "./src/request-service",
     "./typings/index.d.ts"
   ]
 }

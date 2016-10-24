@@ -8,6 +8,12 @@ export interface HttpPostRequestParams {
   [name: string]: any;
 }
 
+function isHttpRequestServiceInterface(service): service is HttpRequestServiceInterface {
+  return "setEntryUrl" in service
+    && "entityManagerRequest" in service
+    && "repositoryRequest" in service;
+}
+
 export interface HttpRequestServiceInterface {
   setEntryUrl(url: string);
 
@@ -16,44 +22,21 @@ export interface HttpRequestServiceInterface {
   repositoryRequest(command: string, params: any): Promise<RequestResult>;
 }
 
-class SuperagentRequestService implements HttpRequestServiceInterface {
-  private entryUrl: string;
+let defaultRequestService: HttpRequestServiceInterface | undefined;
 
-  public constructor(entryUrl: string) {
-    this.entryUrl = entryUrl;
+export function setDefaultRequestService(service: HttpRequestServiceInterface) {
+  // TODO: throw exception with more information
+  if (!isHttpRequestServiceInterface(service)) {
+    throw Error("Service must be compatible with HttpRequestServiceInterface!");
   }
 
-  public setEntryUrl(url: string) {
-    this.entryUrl = url;
-  }
-
-  entityManagerRequest(command: string, data: any): Promise<RequestResult> {
-    return this.post(this.entryUrl + "/entity-manager", {
-      command,
-      data
-    });
-  }
-
-  repositoryRequest(command: string, data: any): Promise<RequestResult> {
-    return this.post(this.entryUrl + "/repository", { command, data });
-  }
-
-  post(url: string, params: HttpPostRequestParams): Promise<RequestResult> {
-    return new Promise<PersistResult>((resolve: Function) => {
-      request
-        .get(url)
-        .send()
-        .then(
-          (response: request.Response) => resolve(new PersistResult(response))
-        );
-    });
-  }
+  defaultRequestService = service;
 }
 
 /**
  * Created by igorandreev on 17/10/16.
  */
-export class DoctrineJS {
+export default class DoctrineJS {
   private entryUrl: string;
 
   private repositories: Repositories = {};
@@ -70,10 +53,19 @@ export class DoctrineJS {
    */
   public constructor(entryUrl: string) {
     this.entryUrl = entryUrl;
+
+    // Predefined default request service, so library will be functional
+    if (defaultRequestService !== undefined) {
+      this.requestService = defaultRequestService;
+    }
   }
 
-  public createEntity(): Entity {
-    return new Entity();
+  public setRequestService(service: HttpRequestServiceInterface) {
+    this.requestService = service;
+  }
+
+  public createEntity(entityName: string): Entity {
+    return new Entity({_entityName: entityName});
   }
 
   public createRepository(): Function {
@@ -89,8 +81,18 @@ export class DoctrineJS {
   }
 }
 
-function Repository(method: string, ...args) {
+class Repository {
+  private requestService: HttpRequestServiceInterface;
+  private entityName: string;
 
+  public constructor(entityName: string, requestService: HttpRequestServiceInterface) {
+    this.requestService = requestService;
+    this.entityName = entityName;
+  }
+
+  public request(method: string, params: Array<any>): Promise<SearchResult> {
+    return this.requestService.repositoryRequest(method, params);
+  }
 }
 
 class EntityManager {
@@ -146,49 +148,85 @@ export class RequestResult {
       return !this.response.ok;
     }
 
+    // If there is no response - think of it if there is noe
+    // error. If there will be another class extending this - it
+    // will provide way for itself to detect an error and override this method.
     return false;
   }
+}
+
+function isEntityCompatibleData(data): data is Entity {
+  return "_entityName" in data;
 }
 
 export class PersistResult extends RequestResult {
   protected data: Entity[] | Entity;
 
-  public setData(data: Entity[] | Entity) {
+  // Checking, if persis was successfull, because
+  public success(): boolean {
+    return !!this.data;
+  }
+
+  public setData(data: any) {
     this.data = data;
   }
 }
 
 export class RemoveResult extends RequestResult {
-  public successfull(): boolean {
-    return this.data;
+  public success(): boolean {
+    return this.data === true;
   }
 }
 
 /**
  * Since persist and search returns entities
  */
-export class SearchResult extends PersistResult {}
+export class SearchResult extends RequestResult {
+  public setData(data: any) {
+    if (!data) {
+      this.data = data;
 
-class Entity {
-  private entityName: string;
-  private repositoryName: string;
+      return;
+    }
 
-  public static createFromData(data: Object): Entity {
-    return new Entity();
+    if ((data instanceof Array && isEntityCompatibleData(data[0])) || isEntityCompatibleData(data)) {
+      this.data = convertDataToEntities(data as EntityCompatibleData[] | EntityCompatibleData);
+    }
+  }
+
+  // Helper method to find out that search result returned empty response
+  public resultIsEmpty(): boolean {
+    return this.data === null || (this.data instanceof Array && !this.data.length);
   }
 }
 
-function convertDataToEntities(data: Object[] | Object): Entity[] | Entity {
+interface EntityCompatibleData {
+  _entityName: string;
+}
+
+class Entity {
+  private _entityName: string;
+
+  public constructor(data: EntityCompatibleData) {
+    Object.assign(this, data);
+  }
+
+  public getEntityName(): string {
+    return this._entityName;
+  }
+}
+
+function convertDataToEntities(data: EntityCompatibleData[] | EntityCompatibleData): Entity[] | Entity {
   let convertedData: Entity[] | Entity;
 
   if (data instanceof Array) {
     convertedData = [];
 
-    data.forEach((o: Object) => {
+    data.forEach((o: EntityCompatibleData) => {
       (convertedData as Entity[]).push(convertDataToEntities(o) as Entity);
     });
   } else {
-    const entity: Entity = Entity.createFromData(data);
+    const entity: Entity = new Entity(data);
 
     convertedData = entity;
   }
