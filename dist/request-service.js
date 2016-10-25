@@ -44,7 +44,36 @@
 /* 0 */
 /***/ function(module, exports, __webpack_require__) {
 
-	module.exports = __webpack_require__(2);
+	"use strict";
+	var request = __webpack_require__(2);
+	var doctrine_1 = __webpack_require__(1);
+	var SuperagentRequestService = (function () {
+	    function SuperagentRequestService(entryUrl) {
+	        this.entryUrl = entryUrl;
+	    }
+	    SuperagentRequestService.prototype.setEntryUrl = function (url) {
+	        this.entryUrl = url;
+	    };
+	    SuperagentRequestService.prototype.entityManagerRequest = function (command, data) {
+	        return this.post(this.entryUrl + "/entity-manager", {
+	            command: command,
+	            data: data
+	        });
+	    };
+	    SuperagentRequestService.prototype.repositoryRequest = function (command, data) {
+	        return this.post(this.entryUrl + "/repository", { command: command, data: data });
+	    };
+	    SuperagentRequestService.prototype.post = function (url, params) {
+	        return new Promise(function (resolve) {
+	            request
+	                .get(url)
+	                .send()
+	                .then(function (response) { return resolve(new doctrine_1.PersistResult(response)); });
+	        });
+	    };
+	    return SuperagentRequestService;
+	}());
+	exports.SuperagentRequestService = SuperagentRequestService;
 
 
 /***/ },
@@ -106,8 +135,8 @@
 	    };
 	    return DoctrineJS;
 	}());
-	exports.__esModule = true;
-	exports["default"] = DoctrineJS;
+	Object.defineProperty(exports, "__esModule", { value: true });
+	exports.default = DoctrineJS;
 	var Repository = (function () {
 	    function Repository(entityName, requestService) {
 	        this.requestService = requestService;
@@ -248,42 +277,6 @@
 /* 2 */
 /***/ function(module, exports, __webpack_require__) {
 
-	"use strict";
-	var request = __webpack_require__(3);
-	var doctrine_1 = __webpack_require__(1);
-	var SuperagentRequestService = (function () {
-	    function SuperagentRequestService(entryUrl) {
-	        this.entryUrl = entryUrl;
-	    }
-	    SuperagentRequestService.prototype.setEntryUrl = function (url) {
-	        this.entryUrl = url;
-	    };
-	    SuperagentRequestService.prototype.entityManagerRequest = function (command, data) {
-	        return this.post(this.entryUrl + "/entity-manager", {
-	            command: command,
-	            data: data
-	        });
-	    };
-	    SuperagentRequestService.prototype.repositoryRequest = function (command, data) {
-	        return this.post(this.entryUrl + "/repository", { command: command, data: data });
-	    };
-	    SuperagentRequestService.prototype.post = function (url, params) {
-	        return new Promise(function (resolve) {
-	            request
-	                .get(url)
-	                .send()
-	                .then(function (response) { return resolve(new doctrine_1.PersistResult(response)); });
-	        });
-	    };
-	    return SuperagentRequestService;
-	}());
-	exports.SuperagentRequestService = SuperagentRequestService;
-
-
-/***/ },
-/* 3 */
-/***/ function(module, exports, __webpack_require__) {
-
 	/**
 	 * Root reference for iframes.
 	 */
@@ -298,9 +291,9 @@
 	  root = this;
 	}
 
-	var Emitter = __webpack_require__(4);
-	var requestBase = __webpack_require__(5);
-	var isObject = __webpack_require__(6);
+	var Emitter = __webpack_require__(3);
+	var requestBase = __webpack_require__(4);
+	var isObject = __webpack_require__(5);
 
 	/**
 	 * Noop.
@@ -312,7 +305,7 @@
 	 * Expose `request`.
 	 */
 
-	var request = module.exports = __webpack_require__(7).bind(null, Request);
+	var request = module.exports = __webpack_require__(6).bind(null, Request);
 
 	/**
 	 * Determine XHR.
@@ -1263,7 +1256,7 @@
 
 
 /***/ },
-/* 4 */
+/* 3 */
 /***/ function(module, exports, __webpack_require__) {
 
 	
@@ -1432,13 +1425,13 @@
 
 
 /***/ },
-/* 5 */
+/* 4 */
 /***/ function(module, exports, __webpack_require__) {
 
 	/**
 	 * Module of mixed-in functions shared between node and client code
 	 */
-	var isObject = __webpack_require__(6);
+	var isObject = __webpack_require__(5);
 
 	/**
 	 * Clear previous timeout.
@@ -1810,7 +1803,7 @@
 
 
 /***/ },
-/* 6 */
+/* 5 */
 /***/ function(module, exports) {
 
 	/**
@@ -1829,7 +1822,7 @@
 
 
 /***/ },
-/* 7 */
+/* 6 */
 /***/ function(module, exports) {
 
 	// The node and browser modules expose versions of this with the

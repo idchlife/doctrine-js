@@ -1,11 +1,16 @@
 {
   "compilerOptions": {
-    "module": "commonjs"
+    "target": "es5",
+    "module": "commonjs",
+    "moduleResolution": "node"
   },
   "files": [
     "./src/doctrine.ts",
     "./src/test-utils.ts",
     "./src/request-service",
     "./typings/index.d.ts"
+  ],
+  "exclude": [
+    "node_modules"
   ]
 }

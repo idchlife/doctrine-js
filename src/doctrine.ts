@@ -1,4 +1,4 @@
-import * as request from "superagent";
+import { Response } from "superagent";
 
 interface Repositories {
   [repositoryName: string]: Function;
@@ -113,17 +113,17 @@ class EntityManager {
   }
 }
 
-function isSuperagentResponse(arg): arg is request.Response {
+function isSuperagentResponse(arg): arg is Response {
   return "body" in arg && "ok" in arg && "status" in arg;
 }
 
 export class RequestResult {
   protected data: any | undefined;
-  private response: request.Response | undefined;
+  private response: Response | undefined;
 
   // We don't have here strong type for response because we can be using another
   // way of accessing data
-  public constructor(arg: request.Response | any) {
+  public constructor(arg: Response | any) {
     if (isSuperagentResponse(arg)) {
       if (arg.ok) {
         this.data = arg.body;

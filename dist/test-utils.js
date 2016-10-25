@@ -40,17 +40,49 @@
 /******/ 	return __webpack_require__(0);
 /******/ })
 /************************************************************************/
-/******/ ({
-
-/***/ 0:
+/******/ ([
+/* 0 */
 /***/ function(module, exports, __webpack_require__) {
 
-	module.exports = __webpack_require__(8);
+	"use strict";
+	var doctrine_1 = __webpack_require__(1);
+	exports.entityDataToFind = {
+	    id: 2,
+	    name: "My own forst product",
+	    price: 5.32,
+	    _entityName: "Product"
+	};
+	var MockRequestService = (function () {
+	    function MockRequestService() {
+	    }
+	    MockRequestService.prototype.entityManagerRequest = function (command, data) {
+	        return new Promise(function (resolve) {
+	            if (command === "persist") {
+	                resolve(new doctrine_1.PersistResult(data));
+	            }
+	            else if (command = "remove") {
+	                resolve(new doctrine_1.RemoveResult(true));
+	            }
+	        });
+	    };
+	    MockRequestService.prototype.repositoryRequest = function (command, params) {
+	        return new Promise(function (resolve) {
+	            if (params.id === 2) {
+	                resolve(new doctrine_1.SearchResult(exports.entityDataToFind));
+	            }
+	            else {
+	                resolve(new doctrine_1.SearchResult(null));
+	            }
+	        });
+	    };
+	    MockRequestService.prototype.setEntryUrl = function (url) { };
+	    return MockRequestService;
+	}());
+	exports.MockRequestService = MockRequestService;
 
 
 /***/ },
-
-/***/ 1:
+/* 1 */
 /***/ function(module, exports) {
 
 	"use strict";
@@ -108,8 +140,8 @@
 	    };
 	    return DoctrineJS;
 	}());
-	exports.__esModule = true;
-	exports["default"] = DoctrineJS;
+	Object.defineProperty(exports, "__esModule", { value: true });
+	exports.default = DoctrineJS;
 	var Repository = (function () {
 	    function Repository(entityName, requestService) {
 	        this.requestService = requestService;
@@ -246,48 +278,5 @@
 	}
 
 
-/***/ },
-
-/***/ 8:
-/***/ function(module, exports, __webpack_require__) {
-
-	"use strict";
-	var doctrine_1 = __webpack_require__(1);
-	exports.entityDataToFind = {
-	    id: 2,
-	    name: "My own forst product",
-	    price: 5.32,
-	    _entityName: "Product"
-	};
-	var MockRequestService = (function () {
-	    function MockRequestService() {
-	    }
-	    MockRequestService.prototype.entityManagerRequest = function (command, data) {
-	        return new Promise(function (resolve) {
-	            if (command === "persist") {
-	                resolve(new doctrine_1.PersistResult(data));
-	            }
-	            else if (command = "remove") {
-	                resolve(new doctrine_1.RemoveResult(true));
-	            }
-	        });
-	    };
-	    MockRequestService.prototype.repositoryRequest = function (command, params) {
-	        return new Promise(function (resolve) {
-	            if (params.id === 2) {
-	                resolve(new doctrine_1.SearchResult(exports.entityDataToFind));
-	            }
-	            else {
-	                resolve(new doctrine_1.SearchResult(null));
-	            }
-	        });
-	    };
-	    MockRequestService.prototype.setEntryUrl = function (url) { };
-	    return MockRequestService;
-	}());
-	exports.MockRequestService = MockRequestService;
-
-
 /***/ }
-
-/******/ });
+/******/ ]);

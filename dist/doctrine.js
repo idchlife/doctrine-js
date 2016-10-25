@@ -106,8 +106,8 @@
 	    };
 	    return DoctrineJS;
 	}());
-	exports.__esModule = true;
-	exports["default"] = DoctrineJS;
+	Object.defineProperty(exports, "__esModule", { value: true });
+	exports.default = DoctrineJS;
 	var Repository = (function () {
 	    function Repository(entityName, requestService) {
 	        this.requestService = requestService;
