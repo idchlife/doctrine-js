@@ -92,11 +92,12 @@
 	    DoctrineJS.prototype.setRequestService = function (service) {
 	        this.requestService = service;
 	    };
-	    DoctrineJS.prototype.createEntity = function (entityName) {
-	        return new Entity({ _entityName: entityName });
+	    DoctrineJS.prototype.createEntity = function (entityName, data) {
+	        if (data === void 0) { data = {}; }
+	        return new Entity(Object.assign({ _entityName: entityName }, data));
 	    };
-	    DoctrineJS.prototype.createRepository = function () {
-	        return Repository;
+	    DoctrineJS.prototype.createRepository = function (entityName) {
+	        return new Repository(entityName, this.requestService);
 	    };
 	    DoctrineJS.prototype.getEntityManager = function () {
 	        if (this.entityManager === undefined) {
@@ -113,25 +114,75 @@
 	        this.requestService = requestService;
 	        this.entityName = entityName;
 	    }
-	    Repository.prototype.request = function (method, params) {
-	        return this.requestService.repositoryRequest(method, params);
+	    Repository.prototype.request = function (method) {
+	        var args = [];
+	        for (var _i = 1; _i < arguments.length; _i++) {
+	            args[_i - 1] = arguments[_i];
+	        }
+	        return (_a = this.requestService).repositoryRequest.apply(_a, [this.entityName, method].concat(args));
+	        var _a;
 	    };
 	    return Repository;
 	}());
 	var EntityManager = (function () {
 	    function EntityManager(entryUrl, requestService) {
+	        this.refreshOriginalAfterPersisting = true;
 	        this.entryUrl = entryUrl;
 	        this.requestService = requestService;
 	    }
-	    EntityManager.prototype.persist = function (data) {
-	        return this.requestService.entityManagerRequest("persist", data);
+	    EntityManager.prototype.setRefreshOriginalAfterPersisting = function (refresh) {
+	        this.refreshOriginalAfterPersisting = refresh;
+	    };
+	    /**
+	     * Method persist entity and if everything is ok
+	     *
+	     * @param data
+	     * @param refreshOriginal
+	     * @returns {Promise<RequestResult>}
+	     */
+	    EntityManager.prototype.persist = function (data, refreshOriginal) {
+	        var _this = this;
+	        if (refreshOriginal === void 0) { refreshOriginal = undefined; }
+	        return new Promise(function (resolve) {
+	            _this.requestService.entityManagerRequest("persist", data).then(function (result) {
+	                if (result.success()) {
+	                    if (refreshOriginal === true || (refreshOriginal !== false && _this.refreshOriginalAfterPersisting === true)) {
+	                        _this.applyChangesFromServerToEntity(data, result.getData());
+	                    }
+	                }
+	                resolve(result);
+	            });
+	        });
 	    };
 	    EntityManager.prototype.remove = function (data) {
 	        return this.requestService.entityManagerRequest("remove", data);
 	    };
+	    EntityManager.prototype.applyChangesFromServerToEntity = function (oldData, newData) {
+	        if (oldData instanceof Array) {
+	            if (!(newData instanceof Array)) {
+	                throw new Error("[DoctrineJS]: Persisted array of entities " + oldData[0].getEntityName() + " but got in return not an array!");
+	            }
+	            if (oldData.length !== newData.length) {
+	                throw new Error("[DoctrineJS]: Persisted array of entities " + oldData[0].getEntityName() + " but got in return not array with the same size!");
+	            }
+	            oldData.forEach(function (e) {
+	                var newEntity = newData.find(function (o) { return o.get("id") === e.get("id"); });
+	                if (!newEntity) {
+	                    throw new Error("[DoctrineJS]: Tried to refresh data that came from server for entity \n              " + e.getEntityName() + ", but did not find data for this entity in server data");
+	                }
+	                e._refreshWithEntityAndClearChanges(newEntity);
+	            });
+	        }
+	        else {
+	            oldData._refreshWithEntityAndClearChanges(newData);
+	        }
+	    };
 	    return EntityManager;
 	}());
 	function isSuperagentResponse(arg) {
+	    if (arg === null || typeof arg !== "object") {
+	        return false;
+	    }
 	    return "body" in arg && "ok" in arg && "status" in arg;
 	}
 	var RequestResult = (function () {
@@ -140,12 +191,12 @@
 	    function RequestResult(arg) {
 	        if (isSuperagentResponse(arg)) {
 	            if (arg.ok) {
-	                this.data = arg.body;
+	                this.setData(arg.body);
 	            }
 	            this.response = arg;
 	        }
 	        else {
-	            this.data = arg;
+	            this.setData(arg);
 	        }
 	    }
 	    RequestResult.prototype.setData = function (data) {
@@ -167,34 +218,11 @@
 	}());
 	exports.RequestResult = RequestResult;
 	function isEntityCompatibleData(data) {
+	    if (!data || typeof data !== "object") {
+	        return false;
+	    }
 	    return "_entityName" in data;
 	}
-	var PersistResult = (function (_super) {
-	    __extends(PersistResult, _super);
-	    function PersistResult() {
-	        _super.apply(this, arguments);
-	    }
-	    // Checking, if persis was successfull, because
-	    PersistResult.prototype.success = function () {
-	        return !!this.data;
-	    };
-	    PersistResult.prototype.setData = function (data) {
-	        this.data = data;
-	    };
-	    return PersistResult;
-	}(RequestResult));
-	exports.PersistResult = PersistResult;
-	var RemoveResult = (function (_super) {
-	    __extends(RemoveResult, _super);
-	    function RemoveResult() {
-	        _super.apply(this, arguments);
-	    }
-	    RemoveResult.prototype.success = function () {
-	        return this.data === true;
-	    };
-	    return RemoveResult;
-	}(RequestResult));
-	exports.RemoveResult = RemoveResult;
 	/**
 	 * Since persist and search returns entities
 	 */
@@ -219,15 +247,76 @@
 	    return SearchResult;
 	}(RequestResult));
 	exports.SearchResult = SearchResult;
+	var PersistResult = (function (_super) {
+	    __extends(PersistResult, _super);
+	    function PersistResult() {
+	        _super.apply(this, arguments);
+	    }
+	    // Checking, if persis was successfull, because
+	    PersistResult.prototype.success = function () {
+	        return !!this.data;
+	    };
+	    return PersistResult;
+	}(SearchResult));
+	exports.PersistResult = PersistResult;
+	var RemoveResult = (function (_super) {
+	    __extends(RemoveResult, _super);
+	    function RemoveResult() {
+	        _super.apply(this, arguments);
+	    }
+	    RemoveResult.prototype.success = function () {
+	        return this.data === true;
+	    };
+	    return RemoveResult;
+	}(RequestResult));
+	exports.RemoveResult = RemoveResult;
 	var Entity = (function () {
 	    function Entity(data) {
-	        Object.assign(this, data);
+	        this.entityData = {};
+	        this.changeSet = {};
+	        if (!isEntityCompatibleData(data)) {
+	            throw new Error("[DoctrineJS]: Tried to create entity with incompatible data! Required properties are missing");
+	        }
+	        this._entityName = data._entityName;
+	        this.entityData = data;
 	    }
 	    Entity.prototype.getEntityName = function () {
 	        return this._entityName;
 	    };
+	    Entity.prototype.set = function (fieldName, value) {
+	        this.changeSet[fieldName] = value;
+	    };
+	    Entity.prototype.get = function (fieldName) {
+	        return this.hasChangesFor(fieldName) ? this.changeSet[fieldName] : this.entityData[fieldName];
+	    };
+	    Entity.prototype.add = function (fieldName, value) {
+	        if (!this.hasProperty(fieldName)) {
+	            throw new Error("[DoctrineJS]: Entity " + this._entityName + " does not have field " + fieldName + " to add something to it!");
+	        }
+	        if (!(this.entityData[fieldName] instanceof Array)) {
+	            throw new Error("[DoctrineJS]: Entity's  property " + this._entityName + " is not an array to add something to it!");
+	        }
+	        this.entityData[fieldName].push(value);
+	    };
+	    Entity.prototype.hasProperty = function (fieldName) {
+	        return this.entityData.hasOwnProperty(fieldName);
+	    };
+	    Entity.prototype.hasChangesFor = function (fieldName) {
+	        return this.changeSet.hasOwnProperty(fieldName);
+	    };
+	    /**
+	     * Not for public usage. Uses entity manager
+	     */
+	    Entity.prototype._refreshWithEntityAndClearChanges = function (entity) {
+	        Object.assign(this.entityData, entity._getEntityData());
+	        this.changeSet = {};
+	    };
+	    Entity.prototype._getEntityData = function () {
+	        return this.entityData;
+	    };
 	    return Entity;
 	}());
+	exports.Entity = Entity;
 	function convertDataToEntities(data) {
 	    var convertedData;
 	    if (data instanceof Array) {
@@ -237,8 +326,14 @@
 	        });
 	    }
 	    else {
-	        var entity = new Entity(data);
-	        convertedData = entity;
+	        // We check if there are data inside entity that is another entity, so creating those
+	        // entities inside before everything
+	        for (var field in data) {
+	            if (isEntityCompatibleData(data[field]) || (data[field] instanceof Array && isEntityCompatibleData(data[field][0]))) {
+	                data[field] = convertDataToEntities(data[field]);
+	            }
+	        }
+	        convertedData = new Entity(data);
 	    }
 	    return convertedData;
 	}

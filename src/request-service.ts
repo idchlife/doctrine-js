@@ -23,8 +23,8 @@ export class SuperagentRequestService implements HttpRequestServiceInterface {
     });
   }
 
-  repositoryRequest(command: string, data: any): Promise<RequestResult> {
-    return this.post(this.entryUrl + "/repository", { command, data });
+  repositoryRequest(entityName: string, command: string, ...args: Array<any>): Promise<RequestResult> {
+    return this.post(this.entryUrl + "/repository", { entityName, command, args });
   }
 
   post(url: string, params: HttpPostRequestParams): Promise<RequestResult> {

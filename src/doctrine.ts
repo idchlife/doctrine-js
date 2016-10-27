@@ -19,7 +19,7 @@ export interface HttpRequestServiceInterface {
 
   entityManagerRequest(command: string, data: any): Promise<RequestResult>;
 
-  repositoryRequest(command: string, params: any): Promise<RequestResult>;
+  repositoryRequest(entityName: string, command: string, ...args: Array<any>): Promise<RequestResult>;
 }
 
 let defaultRequestService: HttpRequestServiceInterface | undefined;
@@ -64,12 +64,12 @@ export default class DoctrineJS {
     this.requestService = service;
   }
 
-  public createEntity(entityName: string): Entity {
-    return new Entity({_entityName: entityName});
+  public createEntity(entityName: string, data: Object = {}): Entity {
+    return new Entity(Object.assign({_entityName: entityName}, data));
   }
 
-  public createRepository(): Function {
-    return Repository;
+  public createRepository(entityName: string): Repository {
+    return new Repository(entityName, this.requestService);
   }
 
   public getEntityManager(): EntityManager {
@@ -90,8 +90,8 @@ class Repository {
     this.entityName = entityName;
   }
 
-  public request(method: string, params: Array<any>): Promise<SearchResult> {
-    return this.requestService.repositoryRequest(method, params);
+  public request(method: string, ...args: Array<any>): Promise<SearchResult> {
+    return this.requestService.repositoryRequest(this.entityName, method, ...args);
   }
 }
 
@@ -99,21 +99,79 @@ class EntityManager {
   private entryUrl: string;
   private requestService: HttpRequestServiceInterface;
 
+  private refreshOriginalAfterPersisting: boolean = true;
+
   public constructor(entryUrl: string, requestService: HttpRequestServiceInterface) {
     this.entryUrl = entryUrl;
     this.requestService = requestService;
   }
 
-  public persist(data: Array<Entity> | Entity): Promise<PersistResult> {
-    return this.requestService.entityManagerRequest("persist", data);
+  public setRefreshOriginalAfterPersisting(refresh: boolean) {
+    this.refreshOriginalAfterPersisting = refresh;
+  }
+
+  /**
+   * Method persist entity and if everything is ok
+   *
+   * @param data
+   * @param refreshOriginal
+   * @returns {Promise<RequestResult>}
+   */
+  public persist(data: Array<Entity> | Entity, refreshOriginal: boolean | undefined = undefined): Promise<PersistResult> {
+    return new Promise<PersistResult>(resolve => {
+      this.requestService.entityManagerRequest("persist", data).then(result => {
+        if ((result as PersistResult).success()) {
+          if (refreshOriginal === true || (refreshOriginal !== false && this.refreshOriginalAfterPersisting === true)) {
+            this.applyChangesFromServerToEntity(data, result.getData());
+          }
+        }
+
+        resolve(result as PersistResult);
+      });
+    });
   }
 
   public remove(data: Entity[] | Entity) {
     return this.requestService.entityManagerRequest("remove", data);
   }
+
+  private applyChangesFromServerToEntity(oldData: Entity[] | Entity, newData: Array<Entity> | Entity) {
+    if (oldData instanceof Array) {
+      if (!(newData instanceof Array)) {
+        throw new Error(
+          `[DoctrineJS]: Persisted array of entities ${oldData[0].getEntityName()} but got in return not an array!`
+        );
+      }
+
+      if (oldData.length !== newData.length) {
+        throw new Error(
+          `[DoctrineJS]: Persisted array of entities ${oldData[0].getEntityName()} but got in return not array with the same size!`
+        );
+      }
+
+      oldData.forEach((e: Entity) => {
+        const newEntity = newData.find((o) => o.get("id") === e.get("id"));
+
+        if (!newEntity) {
+          throw new Error(
+            `[DoctrineJS]: Tried to refresh data that came from server for entity 
+              ${e.getEntityName()}, but did not find data for this entity in server data`
+          );
+        }
+
+        e._refreshWithEntityAndClearChanges(newEntity);
+      });
+    } else {
+      oldData._refreshWithEntityAndClearChanges(newData as Entity);
+    }
+  }
 }
 
 function isSuperagentResponse(arg): arg is Response {
+  if (arg === null || typeof arg !== "object") {
+    return false;
+  }
+
   return "body" in arg && "ok" in arg && "status" in arg;
 }
 
@@ -126,12 +184,12 @@ export class RequestResult {
   public constructor(arg: Response | any) {
     if (isSuperagentResponse(arg)) {
       if (arg.ok) {
-        this.data = arg.body;
+        this.setData(arg.body);
       }
 
       this.response = arg;
     } else {
-      this.data = arg;
+      this.setData(arg);
     }
   }
 
@@ -156,26 +214,11 @@ export class RequestResult {
 }
 
 function isEntityCompatibleData(data): data is Entity {
+  if (!data || typeof data !== "object") {
+    return false;
+  }
+
   return "_entityName" in data;
-}
-
-export class PersistResult extends RequestResult {
-  protected data: Entity[] | Entity;
-
-  // Checking, if persis was successfull, because
-  public success(): boolean {
-    return !!this.data;
-  }
-
-  public setData(data: any) {
-    this.data = data;
-  }
-}
-
-export class RemoveResult extends RequestResult {
-  public success(): boolean {
-    return this.data === true;
-  }
 }
 
 /**
@@ -200,19 +243,96 @@ export class SearchResult extends RequestResult {
   }
 }
 
-interface EntityCompatibleData {
-  _entityName: string;
+export class PersistResult extends SearchResult {
+  protected data: Entity[] | Entity;
+
+  // Checking, if persis was successfull, because
+  public success(): boolean {
+    return !!this.data;
+  }
 }
 
-class Entity {
+export class RemoveResult extends RequestResult {
+  public success(): boolean {
+    return this.data === true;
+  }
+}
+
+interface EntityCompatibleData {
+  _entityName: string;
+  [fieldName: string]: any;
+}
+
+interface EntityData {
+  [fieldName: string]: any;
+}
+
+export class Entity {
   private _entityName: string;
 
+  private entityData: EntityData = {};
+
+  private changeSet: EntityData = {};
+
   public constructor(data: EntityCompatibleData) {
-    Object.assign(this, data);
+    if (!isEntityCompatibleData(data)) {
+      throw new Error(
+        `[DoctrineJS]: Tried to create entity with incompatible data! Required properties are missing`
+      );
+    }
+
+    this._entityName = data._entityName;
+
+    this.entityData = data;
   }
 
   public getEntityName(): string {
     return this._entityName;
+  }
+
+  public set(fieldName: string, value: any) {
+    this.changeSet[fieldName] = value;
+  }
+
+  public get(fieldName: string): any {
+    return this.hasChangesFor(fieldName) ? this.changeSet[fieldName] : this.entityData[fieldName];
+  }
+
+  public add(fieldName: string, value: any) {
+    if (!this.hasProperty(fieldName)) {
+      throw new Error(
+        `[DoctrineJS]: Entity ${this._entityName} does not have field ${fieldName} to add something to it!`
+      );
+    }
+
+    if (!(this.entityData[fieldName] instanceof Array)) {
+      throw new Error(
+        `[DoctrineJS]: Entity's  property ${this._entityName} is not an array to add something to it!`
+      );
+    }
+
+    this.entityData[fieldName].push(value);
+  }
+
+  public hasProperty(fieldName: string): boolean {
+    return this.entityData.hasOwnProperty(fieldName);
+  }
+
+  public hasChangesFor(fieldName: string) {
+    return this.changeSet.hasOwnProperty(fieldName);
+  }
+
+  /**
+   * Not for public usage. Uses entity manager
+   */
+  public _refreshWithEntityAndClearChanges(entity: Entity) {
+    Object.assign(this.entityData, entity._getEntityData());
+
+    this.changeSet = {};
+  }
+
+  public _getEntityData(): EntityData {
+    return this.entityData;
   }
 }
 
@@ -226,9 +346,15 @@ function convertDataToEntities(data: EntityCompatibleData[] | EntityCompatibleDa
       (convertedData as Entity[]).push(convertDataToEntities(o) as Entity);
     });
   } else {
-    const entity: Entity = new Entity(data);
+    // We check if there are data inside entity that is another entity, so creating those
+    // entities inside before everything
+    for (let field in data) {
+      if (isEntityCompatibleData(data[field]) || (data[field] instanceof Array && isEntityCompatibleData(data[field][0]))) {
+        data[field] = convertDataToEntities(data[field]);
+      }
+    }
 
-    convertedData = entity;
+    convertedData = new Entity(data);
   }
 
   return convertedData;
