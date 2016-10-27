@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "main": "index.js",
   "license": "MIT",
+  "scripts": {
+    "test": "./test/test.ts"
+  },
   "devDependencies": {
     "awesome-typescript-loader": "^2.2.4",
     "bitbar-webpack-progress-plugin": "^0.1.3",
