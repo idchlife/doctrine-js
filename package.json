@@ -4,7 +4,7 @@
   "main": "index.js",
   "license": "MIT",
   "scripts": {
-    "test": "./test/test.ts"
+    "test": "mocha --compilers ts:ts-node/register,tsx:ts-node/register"
   },
   "devDependencies": {
     "awesome-typescript-loader": "^2.2.4",
