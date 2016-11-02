@@ -64,7 +64,8 @@
 	    MockRequestService.prototype.entityManagerRequest = function (command, data) {
 	        return new Promise(function (resolve) {
 	            if (command === "persist") {
-	                resolve(new doctrine_1.PersistResult(data));
+	                // Imitating that we got raw data from server
+	                resolve(new doctrine_1.PersistResult(data._getEntityData()));
 	            }
 	            else if (command = "remove") {
 	                resolve(new doctrine_1.RemoveResult(true));
@@ -271,6 +272,9 @@
 	    if (!data || typeof data !== "object") {
 	        return false;
 	    }
+	    if (data instanceof Entity) {
+	        return false;
+	    }
 	    return "_entityName" in data;
 	}
 	/**
@@ -368,7 +372,12 @@
 	}());
 	exports.Entity = Entity;
 	function convertDataToEntities(data) {
+	    if (data instanceof Entity) {
+	        var id = data.get("id");
+	        throw new Error("[DoctrineJS]: Cannot convert Entity to Entity!\n      Tried to convert " + data.getEntityName() + ". " + (id ? "Entity has id: " + id : "It was new entity."));
+	    }
 	    var convertedData;
+	    // We have an array of datas, so we should iterate over them and create array of entities in return
 	    if (data instanceof Array) {
 	        convertedData = [];
 	        data.forEach(function (o) {

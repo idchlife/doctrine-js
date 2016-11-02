@@ -17,7 +17,7 @@ function isHttpRequestServiceInterface(service): service is HttpRequestServiceIn
 export interface HttpRequestServiceInterface {
   setEntryUrl(url: string);
 
-  entityManagerRequest(command: string, data: any): Promise<RequestResult>;
+  entityManagerRequest(command: string, data: Entity | Entity[]): Promise<RequestResult>;
 
   repositoryRequest(entityName: string, command: string, ...args: Array<any>): Promise<RequestResult>;
 }
@@ -114,7 +114,7 @@ class EntityManager {
    * Method persist entity and if everything is ok
    *
    * @param data
-   * @param refreshOriginal
+   * @param refreshOriginal if no value specified, takes default value from this.refreshOriginalAfterPersisting
    * @returns {Promise<RequestResult>}
    */
   public persist(data: Array<Entity> | Entity, refreshOriginal: boolean | undefined = undefined): Promise<PersistResult> {
@@ -218,6 +218,10 @@ function isEntityCompatibleData(data): data is Entity {
     return false;
   }
 
+  if (data instanceof Entity) {
+    return false;
+  }
+
   return "_entityName" in data;
 }
 
@@ -268,7 +272,7 @@ interface EntityData {
 }
 
 export class Entity {
-  private _entityName: string;
+  private readonly _entityName: string;
 
   private entityData: EntityData = {};
 
@@ -334,11 +338,25 @@ export class Entity {
   public _getEntityData(): EntityData {
     return this.entityData;
   }
+
+  public _getChangeSet(): EntityData {
+    return this.changeSet;
+  }
 }
 
 function convertDataToEntities(data: EntityCompatibleData[] | EntityCompatibleData): Entity[] | Entity {
+  if (data instanceof Entity) {
+    const id: any | undefined = data.get("id");
+
+    throw new Error(
+      `[DoctrineJS]: Cannot convert Entity to Entity!
+      Tried to convert ${data.getEntityName()}. ${id ? `Entity has id: ${id}` : "It was new entity."}`
+    );
+  }
+
   let convertedData: Entity[] | Entity;
 
+  // We have an array of datas, so we should iterate over them and create array of entities in return
   if (data instanceof Array) {
     convertedData = [];
 

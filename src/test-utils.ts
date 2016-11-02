@@ -2,7 +2,9 @@ import {
   HttpRequestServiceInterface,
   RequestResult,
   PersistResult,
-  RemoveResult, SearchResult
+  RemoveResult,
+  SearchResult,
+  Entity
 } from "./doctrine";
 
 export const testDataToFind = {
@@ -21,10 +23,19 @@ export const testDataWithInnerEntitiesToFind = {
 };
 
 export class MockRequestService implements HttpRequestServiceInterface {
-  entityManagerRequest(command: string, data: any): Promise<RequestResult> {
+  entityManagerRequest(command: string, data: Entity[] | Entity): Promise<RequestResult> {
     return new Promise<RequestResult>(resolve => {
       if (command === "persist") {
-        resolve(new PersistResult(data));
+        // Imitating that we got raw data from server, also that we applying all the changeset
+        resolve(
+          new PersistResult(
+            Object.assign(
+              {},
+              (data as Entity)._getEntityData(),
+              (data as Entity)._getChangeSet()
+            )
+          )
+        );
       } else if (command = "remove") {
         resolve(new RemoveResult(true));
       }

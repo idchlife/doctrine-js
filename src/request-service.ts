@@ -2,7 +2,7 @@ import * as request from "superagent";
 import {
   HttpRequestServiceInterface,
   RequestResult,
-  HttpPostRequestParams, PersistResult
+  HttpPostRequestParams, PersistResult, Entity
 } from "./doctrine";
 
 export class SuperagentRequestService implements HttpRequestServiceInterface {
@@ -16,7 +16,7 @@ export class SuperagentRequestService implements HttpRequestServiceInterface {
     this.entryUrl = url;
   }
 
-  entityManagerRequest(command: string, data: any): Promise<RequestResult> {
+  entityManagerRequest(command: string, data: Entity[] | Entity): Promise<RequestResult> {
     return this.post(this.entryUrl + "/entity-manager", {
       command,
       data

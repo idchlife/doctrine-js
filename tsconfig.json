@@ -1,6 +1,6 @@
 {
   "compilerOptions": {
-    "target": "es5",
+    "target": "es2015",
     "module": "commonjs",
     "moduleResolution": "node"
   },
@@ -8,7 +8,8 @@
     "./src/doctrine.ts",
     "./src/test-utils.ts",
     "./src/request-service",
-    "./typings/index.d.ts"
+    "./typings/index.d.ts",
+    "./test/test"
   ],
   "exclude": [
     "node_modules"
