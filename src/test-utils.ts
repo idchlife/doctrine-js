@@ -22,6 +22,12 @@ export const testDataWithInnerEntitiesToFind = {
   innerProducts: [{id: 5, _entityName: "Product"}]
 };
 
+const toolsSearchResult = [
+  {id: 1, weight: 1},
+  {id: 2, weight: 2},
+  {id: 3, weight: 3}
+];
+
 export class MockRequestService implements HttpRequestServiceInterface {
   entityManagerRequest(command: string, data: Entity[] | Entity): Promise<RequestResult> {
     return new Promise<RequestResult>(resolve => {
@@ -43,7 +49,7 @@ export class MockRequestService implements HttpRequestServiceInterface {
   }
 
   repositoryRequest(entityName: string, command: string, ...args: Array<any>): Promise<SearchResult> {
-    return new Promise<SearchResult>(resolve => {
+    return new Promise<SearchResult>((resolve, reject) => {
       if (entityName === "Product" && command === "find") {
         const id: number = args[0];
         if (id === 2) {
@@ -53,6 +59,10 @@ export class MockRequestService implements HttpRequestServiceInterface {
         } else {
           resolve(new SearchResult(null));
         }
+      } else if (entityName === "Tool") {
+        resolve(new SearchResult(toolsSearchResult));
+      } else {
+        reject();
       }
     });
   }

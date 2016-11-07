@@ -1,5 +1,4 @@
 import DoctrineJS from "../src/doctrine";
-import { RequestResult } from "../src/doctrine";
 import { MockRequestService } from "../src/test-utils";
 import { RemoveResult } from "../src/doctrine";
 import { PersistResult } from "../src/doctrine";
@@ -20,7 +19,7 @@ const djs = new DoctrineJS("/");
 // Mocking request service so it wont send requests but pretend to do so
 djs.setRequestService(new MockRequestService());
 
-describe("Testing basic library requests, results, working with entities", async () => {
+describe("Testing basic library requests, results, working with entities", () => {
   const entity = djs.createEntity("Product");
 
   it("should be entity when creating it via DoctrineJS", () => {
@@ -79,7 +78,7 @@ describe("Testing basic library requests, results, working with entities", async
   });
 
   it("should find simple entity and entity with inner entities to test recursive entity creation", () => {
-    djs.createRepository("Product").request("find", 2).then(result => {
+    return djs.createRepository("Product").request("find", 2).then(result => {
       assert.instanceOf(result, SearchResult);
 
       // Checking that result is entity
@@ -87,8 +86,11 @@ describe("Testing basic library requests, results, working with entities", async
 
       assert.instanceOf(entity, Entity);
     });
+  });
 
-    djs.createRepository("Product").request("find", 3).then(result => {
+  it(
+    "should find entity and have entities inside as well",
+    () => djs.createRepository("Product").request("find", 3).then(result => {
       const entity = result.getData();
 
       assert.instanceOf(entity, Entity);
@@ -98,18 +100,20 @@ describe("Testing basic library requests, results, working with entities", async
       const innerEntities = entity.get("innerProducts");
 
       assert.instanceOf(innerEntities[0], Entity);
-    });
-  });
+    }
+  ));
 
   const toolsRep = djs.createRepository("Tool");
 
-  const result: SearchResult = await toolsRep.request("findAll");
+  it("tools should be array", async () => {
+    try {
+      let result: SearchResult = await toolsRep.request("findAll");
 
-  let tools: Entity[] = result.getData();
+      let tools: Entity[] = result.getData();
 
-  console.log("lel");
-
-  it("tools should be array", () => {
-    assert.isArray(tools);
+      assert.isArray(tools);
+    } catch (err) {
+      throw err;
+    }
   });
 });
